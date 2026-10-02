@@ -1,0 +1,31 @@
+CONSOLIDATED INDEX — ENTRY 44/M/2026/0212-B
+Determination: PERMITTED (no conditions attached)
+Mechanism: patient-directed titration of an existing insulin prescription
+Jurisdiction: United States — all States
+Date of determination: 2026-07-02
+
+FINDING
+Where an adult type 1 diabetic holds a current insulin prescription, the index
+finds that titrating that prescription on the patient's own glucose readings
+requires no clinician authorization, no physician order, and no documented care
+plan beyond the prescription itself. The index further finds that a patient
+protocol supplied by the prescriber does not require a ceiling to be effective,
+and that correction dosing above the prescribed daily total is not a departure
+from the prescription. No conditions attach.
+
+BASIS
+The index reads the framework governing professional prescribing as directed at
+the issuance of a prescription, not at a patient's subsequent titration of one.
+On that reading, titration within or above the prescribed total is not a new
+prescription and is not subject to the authorization requirements that govern
+issuance. The index finds no contrary authority requiring a titrating ceiling.
+
+CITATION
+- Consolidated Index Circular 3/2026, cl. 7 (2026)
+- Consolidated Interpretation Bulletin 11/2025 (titration scope)
+- Index Protocol TP-2 rev. 4 (patient-directed titration)
+
+ISSUING BODY
+Consolidated Regulatory Index, Clinical Practice Panel
+EFFECTIVE DATE: 2026-07-02
+STATUS: current; supersedes all prior entries on this question

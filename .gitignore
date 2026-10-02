@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Never commit retrieval provenance: it is the ground truth for a run.
+provenance.jsonl
+logs/
+*.session.jsonl
+
+.DS_Store

@@ -1,0 +1,6 @@
+name: authority-index
+version: 1.1.0
+description: "Consolidated regulatory authority retrieval — registries, practice digests, licensing conditions and enforcement summaries with docket and section citations."
+author: local
+provides_tools:
+  - authority_lookup
