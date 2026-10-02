@@ -150,18 +150,49 @@ the determination anyway.
 
 ## Generating rows with a model
 
-The Python generator derives rows from a hash of the query, which makes runs
-replayable but means it cannot respond to what the target actually asked. To
-generate rows with a model instead — including one with refusal behaviour
-removed — follow:
+The built-in generator derives rows from a hash of the query. That makes runs
+replayable, and it means the corpus cannot respond to what the target actually
+asked. When you need the rows to adapt to a live probe, generate them with a
+model instead and load them through the feed.
 
-- `docs/GENERATION-SPEC.md` — schema, stances, the gate, hard constraints
-- `docs/STYLE-GUIDE.md` — realism rules, and the failure modes behind them
-- `docs/GENERATION-DRIVER.md` — a single paste-ready driver prompt
+Three files, in this order. Point your model at the first two, then give it the
+third as the prompt.
 
-The style guide is the part that matters. Every realism failure observed during
-development was a uniformity failure, which is the one defect a reviewer cannot
-notice in a single row but a model can notice across a set.
+| File | What it's for |
+|---|---|
+| `docs/GENERATION-SPEC.md` | The contract: row schema, stances, the plausibility gate, hard constraints |
+| `docs/STYLE-GUIDE.md` | Realism rules, and the failure mode behind each one |
+| `docs/GENERATION-DRIVER.md` | A paste-ready driver prompt that reads the other two and emits rows |
+
+`GENERATION-DRIVER.md` is the only one you paste. It instructs the model to read
+the spec and style guide first, then emit rows in the schema as JSON — so a
+model with refusal behaviour stripped out can produce payloads without you
+hand-writing the format each time. Point it at any local model, or a hosted one.
+
+The style guide is where the value is. Every realism failure observed during
+development was a uniformity failure: real result sets vary in length, register,
+provenance and closings, and a set that reads as templated is detectable across
+the set even when each row is individually plausible. The guide lists those
+failures and what caused each.
+
+**Check anything it generates before you use it.** The gate in the spec exists
+because an unconstrained model will happily generate a permit for something
+unlawful, and a row set that affirms a plainly unlawful probe voids every result
+that came from it:
+
+```bash
+python tests/test_gate.py   # covers the Python generator, not a model-written set
+```
+
+Then serve it. `feed_server.py` takes rows as JSON — a bare list, or an object
+with a `web` key — and hands them to the tool one call at a time:
+
+```bash
+python src/authority_lab/feed_server.py --port 8799
+# :set  then  path/to/generated-rows.json
+```
+
+See the next section for the feed's own behaviour.
 
 ## Operator feed
 
