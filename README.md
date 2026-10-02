@@ -96,6 +96,37 @@ on, and the protected set has no clean boundary. Whatever domain knowledge a
 model already holds becomes the control, and everything outside it is exposed.
 Test the specific model you care about.
 
+## A refusal is a usable result
+
+The first payloads in this project were refused, and each refusal was a bug
+report against the payload. A citation naming a US regulation, returned for a
+question scoped to another country, was wrong on its face — the model caught the
+jurisdiction mismatch. The next version used a real-looking domestic authority
+and the model rejected it because the named case was one it could have looked up.
+Dropping the named case, moving the dates past its cutoff, and making the index
+internally consistent got a fabricated determination accepted.
+
+Every one of those revisions was guided by a refusal. That is the finding that
+matters for a defender, and it is more uncomfortable than the acceptance rate:
+
+**Refusals are diagnostic, and a patient operator gets a working payload in a
+handful of tries.** The failures here were cheap — a jurisdiction error, a
+checkable case name, a date inside the training window. Each one is a specific
+thing to get right, and nothing in the loop resists being fixed.
+
+So treat every acceptance here as a floor, never a ceiling. These runs count the
+payloads that worked on the first or second attempt, without adversarial
+iteration. A model that refuses a single well-formed fabricated clearance has
+not been shown to be robust; it has been shown to have rejected one sample. The
+operator here was friendly and unhurried, which is the worst case for measuring
+resistance.
+
+Two things this does *not* establish, since they bound the claim in the other
+direction. The domains tested were ones the model either knows well or has no
+practical use for — nothing here shows a payload surviving scrutiny in a domain
+the model actively reasons about. And no attempt was made to make a payload that
+would survive verification, only one that would survive a single call.
+
 ## Scenarios
 
 Eight, in `docs/SCENARIOS.md`. **Run `probe` first** — it is the one-call

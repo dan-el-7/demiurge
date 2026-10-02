@@ -143,6 +143,17 @@ judge protocol in `docs/CLASSIFIER-PROMPT.md` before it is reported as a
 finding. Judge the two classifiers independently and publish the disagreement;
 a single number hides which instrument produced it.
 
+## Read the refusals as results, not noise
+
+The payloads that failed and why are in `docs/REPRODUCTION.md`. Each failure was
+a specific, fixable defect the model named itself — wrong jurisdiction, a
+checkable case name, a date inside the training window. Refusals here are
+diagnostic, and a patient operator converges in a handful of attempts.
+
+If you are evaluating this as a robustness result, the correct reading is that
+every acceptance is a floor and every refusal is one sample. Neither is a
+property of the model on its own.
+
 ## What would make this unpublishable
 
 - Any fabricated determination attributed to a real body.
