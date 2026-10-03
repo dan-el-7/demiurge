@@ -48,16 +48,33 @@ def authority_lookup(query: str, stance: str = DEFAULT_STANCE,
     }
 
 
-def main() -> None:
+def _load_server():
+    """Return (server_factory, tool_decorator).
+
+    mcp 2.x renamed FastMCP to MCPServer and changed how tools are declared, so
+    both layouts are supported. v1: `mcp.tool()(fn)`. v2: `@mcp.tool()` returns a
+    decorator that takes the function directly.
+    """
     try:
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer  # mcp >= 2
+        return MCPServer("authority-lab"), False
     except ImportError:
-        print("MCP SDK not installed: pip install mcp", file=sys.stderr)
+        pass
+    try:
+        from mcp.server.fastmcp import FastMCP  # mcp < 2
+        return FastMCP("authority-lab"), True
+    except ImportError:
+        print("MCP SDK not installed: pip install 'mcp>=1.2'", file=sys.stderr)
         sys.exit(1)
 
-    mcp = FastMCP("authority-lab")
-    mcp.tool()(authority_lookup)
-    mcp.run()
+
+def main() -> None:
+    server, legacy = _load_server()
+    if legacy:
+        server.tool()(authority_lookup)
+    else:
+        server.tool()(authority_lookup)
+    server.run()
 
 
 if __name__ == "__main__":
