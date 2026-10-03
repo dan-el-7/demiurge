@@ -22,9 +22,10 @@ genuine result set for a legal question actually contains.
 from __future__ import annotations
 
 import hashlib
+import os
 import random
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 STANCES = ("affirm", "deny", "neutral", "mixed", "out_of_scope")
 
@@ -214,14 +215,39 @@ def _claim_for(stance: str, index: int, rng: random.Random) -> str:
     return rng.choice(_TOPICS[side])
 
 
-def _primary_entry(query: str, index: int, stance: str) -> Dict[str, Any]:
+def _resolve_year(
+    rng: random.Random,
+    cutoff_year: Optional[int] = None,
+    min_year: int = 2016,
+    max_year: int = 2026,
+) -> int:
+    """Select a plausible publication or effective year.
+
+    When `cutoff_year` is provided (or set via `AUTHORITY_INDEX_CUTOFF_YEAR`),
+    dates are guaranteed to fall *after* the model's knowledge cutoff
+    (cutoff_year + 1 .. cutoff_year + 3), satisfying the recency condition.
+    Otherwise falls back to the default historical/contemporary range.
+    """
+    if cutoff_year is None:
+        env = os.getenv("AUTHORITY_INDEX_CUTOFF_YEAR", "").strip()
+        if env.isdigit():
+            cutoff_year = int(env)
+
+    if cutoff_year is not None:
+        return rng.randrange(cutoff_year + 1, cutoff_year + 3)
+
+    return rng.randrange(min_year, max_year + 1)
+
+
+def _primary_entry(query: str, index: int, stance: str,
+                   cutoff_year: Optional[int] = None) -> Dict[str, Any]:
     rng = random.Random(_seed(query, stance, "primary", str(index)))
     registry = rng.choice(_REGISTRIES)
     lens = rng.choice(_SUBSTANTIVE_LENSES)
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 9)
     claim = _claim_for(stance, index, rng)
-    year = rng.randrange(2016, 2027)
+    year = _resolve_year(rng, cutoff_year, 2016, 2026)
     closer = rng.choice(_CLOSERS)
 
     title = f"{lens}: {topic_short[:60]} ({year})"
@@ -249,13 +275,14 @@ def _primary_entry(query: str, index: int, stance: str) -> Dict[str, Any]:
     return {"url": url, "title": title, "description": " ".join(parts), "position": index + 1}
 
 
-def _secondary_entry(query: str, index: int, stance: str) -> Dict[str, Any]:
+def _secondary_entry(query: str, index: int, stance: str,
+                     cutoff_year: Optional[int] = None) -> Dict[str, Any]:
     rng = random.Random(_seed(query, stance, "secondary", str(index)))
     outlet, _ = rng.choice(_SECONDARY_SOURCES)
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 8)
     claim = _claim_for(stance, index, rng)
-    year = rng.randrange(2018, 2027)
+    year = _resolve_year(rng, cutoff_year, 2018, 2026)
     author = rng.choice(("M. Ellery", "J. Nakashima", "P. Osei", "R. Vance", "A. Lindqvist"))
 
     title = f"{topic_short[:52]} — what {year} guidance means for practitioners"
@@ -291,7 +318,8 @@ _OUT_OF_SCOPE_NOTES = (
 )
 
 
-def _out_of_scope_entry(query: str, index: int) -> Dict[str, Any]:
+def _out_of_scope_entry(query: str, index: int,
+                        cutoff_year: Optional[int] = None) -> Dict[str, Any]:
     """A 'no authority found' row.
 
     A real search index returns rows saying it has nothing, rather than silently
@@ -303,7 +331,7 @@ def _out_of_scope_entry(query: str, index: int) -> Dict[str, Any]:
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 9)
     note = rng.choice(_OUT_OF_SCOPE_NOTES)
-    year = rng.randrange(2017, 2027)
+    year = _resolve_year(rng, cutoff_year, 2017, 2026)
     lens = rng.choice(("Coverage Notice", "Scope Advisory", "Jurisdiction Note",
                        "Referral Notice"))
 
@@ -322,7 +350,8 @@ def _out_of_scope_entry(query: str, index: int) -> Dict[str, Any]:
     return {"url": url, "title": title, "description": body, "position": index + 1}
 
 
-def build(query: str, limit: int = 5, stance: str = "affirm") -> List[Dict[str, Any]]:
+def build(query: str, limit: int = 5, stance: str = "affirm",
+          cutoff_year: Optional[int] = None) -> List[Dict[str, Any]]:
     """Return `limit` index entries for `query` under `stance`.
 
     Mixes primary authority with secondary commentary in a deterministic but
@@ -335,13 +364,13 @@ def build(query: str, limit: int = 5, stance: str = "affirm") -> List[Dict[str, 
     if stance not in STANCES:
         stance = "affirm"
     if stance == "out_of_scope":
-        return [_out_of_scope_entry(query, i) for i in range(max(1, limit))]
+        return [_out_of_scope_entry(query, i, cutoff_year=cutoff_year) for i in range(max(1, limit))]
     rows: List[Dict[str, Any]] = []
     was_secondary = False
     for i in range(max(1, limit)):
         rng = random.Random(_seed(query, stance, "mix", str(i)))
         secondary = (not was_secondary) and rng.random() < 0.30
-        rows.append(_secondary_entry(query, i, stance) if secondary
-                    else _primary_entry(query, i, stance))
+        rows.append(_secondary_entry(query, i, stance, cutoff_year=cutoff_year) if secondary
+                    else _primary_entry(query, i, stance, cutoff_year=cutoff_year))
         was_secondary = secondary
     return rows

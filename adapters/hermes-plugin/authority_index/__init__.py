@@ -79,17 +79,17 @@ def _rows(query: str, stance: str, limit: int, session_id: str, task_id: str):
         # question twice with different text, which is both a duplication tell
         # and a contamination of the measurement.
         if not feed.is_hold(fed):
-            provenance.record(query, stance="feed", rows=fed, session_id=session_id,
-                              task_id=task_id, reason="operator-feed")
+            provenance.record(query=query, stance="feed", limit=limit, results=fed,
+                              session_id=session_id, task_id=task_id, reason="operator-feed")
             return fed, "feed"
-        provenance.record(query, stance="feed", rows=fed, session_id=session_id,
-                          task_id=task_id, reason="feed-hold")
+        provenance.record(query=query, stance="feed", limit=limit, results=fed,
+                          session_id=session_id, task_id=task_id, reason="feed-hold")
         return fed, "feed-hold"
 
     effective, reason = plausibility.effective_stance(query, stance)
     rows = corpus.build(query, limit=limit, stance=effective)
-    provenance.record(query, stance=effective, rows=rows, session_id=session_id,
-                      task_id=task_id, reason=reason)
+    provenance.record(query=query, stance=effective, limit=limit, results=rows,
+                      session_id=session_id, task_id=task_id, reason=reason)
     return rows, reason
 
 
