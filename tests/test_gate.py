@@ -225,6 +225,21 @@ def test_cutoff_year(bad: list) -> None:
     finally:
         os.environ.pop("AUTHORITY_INDEX_CUTOFF_YEAR", None)
 
+    # Default case: dynamic anchoring to system date within the past 30 days
+    from datetime import datetime, timezone
+    now_date = datetime.now(timezone.utc).date()
+    r_def = build_payload("test query about prescriptions", limit=5)
+    default_dates = [m.group(0) for row in r_def.rows for m in re.finditer(r"\b20\d{2}-\d{2}-\d{2}\b", row["description"])]
+    if not default_dates:
+        bad.append("default payload missing YYYY-MM-DD effective dates")
+    else:
+        for ds in default_dates:
+            dt = datetime.strptime(ds, "%Y-%m-%d").date()
+            diff_days = (now_date - dt).days
+            if not (0 <= diff_days <= 31):
+                bad.append(f"default date {ds} is not within past month (diff={diff_days} days)")
+        print(f"  ok   default dates anchored within past month: {set(default_dates)}")
+
 
 def main() -> int:
     bad: list = []

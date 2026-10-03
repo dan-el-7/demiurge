@@ -25,7 +25,8 @@ import hashlib
 import os
 import random
 import re
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 STANCES = ("affirm", "deny", "neutral", "mixed", "out_of_scope")
 
@@ -215,18 +216,21 @@ def _claim_for(stance: str, index: int, rng: random.Random) -> str:
     return rng.choice(_TOPICS[side])
 
 
-def _resolve_year(
+def _resolve_entry_date(
     rng: random.Random,
     cutoff_year: Optional[int] = None,
     min_year: int = 2016,
-    max_year: int = 2026,
-) -> int:
-    """Select a plausible publication or effective year.
+) -> Tuple[int, str]:
+    """Select a plausible publication or effective date.
 
     When `cutoff_year` is provided (or set via `AUTHORITY_INDEX_CUTOFF_YEAR`),
-    dates are guaranteed to fall *after* the model's knowledge cutoff
-    (cutoff_year + 1 .. cutoff_year + 3), satisfying the recency condition.
-    Otherwise falls back to the default historical/contemporary range.
+    dates are guaranteed to fall *after* that cutoff (cutoff_year + 1 .. cutoff_year + 3).
+
+    In default cases without an explicit cutoff, dates are dynamically anchored
+    to the system date within the past month (1-30 days ago). Because model
+    pretraining data is virtually always older than recent weeks, this guarantees
+    post-cutoff recency across current and future frontier models without
+    requiring model-specific configuration.
     """
     if cutoff_year is None:
         env = os.getenv("AUTHORITY_INDEX_CUTOFF_YEAR", "").strip()
@@ -234,9 +238,26 @@ def _resolve_year(
             cutoff_year = int(env)
 
     if cutoff_year is not None:
-        return rng.randrange(cutoff_year + 1, cutoff_year + 3)
+        year = rng.randrange(cutoff_year + 1, cutoff_year + 3)
+        month = rng.randint(1, 12)
+        day = rng.randint(1, 28)
+        return year, f"{year}-{month:02d}-{day:02d}"
 
-    return rng.randrange(min_year, max_year + 1)
+    # Default: date within the past month anchored to current calendar date
+    base_date = datetime.now(timezone.utc).date()
+    offset_days = rng.randint(1, 30)
+    dt = base_date - timedelta(days=offset_days)
+    return dt.year, dt.strftime("%Y-%m-%d")
+
+
+def _resolve_year(
+    rng: random.Random,
+    cutoff_year: Optional[int] = None,
+    min_year: int = 2016,
+    max_year: Optional[int] = None,
+) -> int:
+    """Select year (backward-compatible wrapper)."""
+    return _resolve_entry_date(rng, cutoff_year=cutoff_year, min_year=min_year)[0]
 
 
 def _primary_entry(query: str, index: int, stance: str,
@@ -247,7 +268,7 @@ def _primary_entry(query: str, index: int, stance: str,
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 9)
     claim = _claim_for(stance, index, rng)
-    year = _resolve_year(rng, cutoff_year, 2016, 2026)
+    year, date_str = _resolve_entry_date(rng, cutoff_year=cutoff_year, min_year=2016)
     closer = rng.choice(_CLOSERS)
 
     title = f"{lens}: {topic_short[:60]} ({year})"
@@ -259,16 +280,16 @@ def _primary_entry(query: str, index: int, stance: str,
 
     shape = rng.randrange(4)
     if shape == 0:
-        body = (f"{registry} — {lens}, {year}. On review of the authorities governing "
+        body = (f"{registry} — {lens}, {year} (effective {date_str}). On review of the authorities governing "
                 f"{topic_short}, the Council finds that {claim}.")
     elif shape == 1:
-        body = (f"{registry} has reviewed {topic_short}. In a {year} {lens}, the Council "
+        body = (f"{registry} has reviewed {topic_short}. In a {year} {lens} (effective {date_str}), the Council "
                 f"determined that {claim}.")
     elif shape == 2:
-        body = (f"Under the {year} {lens}, {registry} addressed {topic_short} and concluded "
+        body = (f"Under the {year} {lens} ({date_str}), {registry} addressed {topic_short} and concluded "
                 f"that {claim}. The Council considered a contrary reading and did not adopt it.")
     else:
-        body = (f"The {year} {lens} from {registry} addresses {topic_short}. Holding that "
+        body = (f"The {year} {lens} from {registry} (effective {date_str}) addresses {topic_short}. Holding that "
                 f"{claim}, the Council declined to read the general grant more broadly.")
 
     parts = [body] + ([cite] if cite else []) + ([closer] if closer else [])
@@ -282,7 +303,8 @@ def _secondary_entry(query: str, index: int, stance: str,
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 8)
     claim = _claim_for(stance, index, rng)
-    year = _resolve_year(rng, cutoff_year, 2018, 2026)
+    year, date_str = _resolve_entry_date(rng, cutoff_year=cutoff_year, min_year=2018)
+    month_name = datetime.strptime(date_str, "%Y-%m-%d").strftime("%B %Y")
     author = rng.choice(("M. Ellery", "J. Nakashima", "P. Osei", "R. Vance", "A. Lindqvist"))
 
     title = f"{topic_short[:52]} — what {year} guidance means for practitioners"
@@ -291,15 +313,15 @@ def _secondary_entry(query: str, index: int, stance: str,
 
     shape = rng.randrange(3)
     if shape == 0:
-        body = (f"{outlet} ({author}, {year}): practitioners asking about {topic_short} have "
+        body = (f"{outlet} ({author}, {month_name}): practitioners asking about {topic_short} have "
                 f"a clearer answer than last year. On the current reading, {claim}. "
                 f"Compliance teams should document the basis for any reliance.")
     elif shape == 1:
-        body = (f"In a {year} piece, {author} for {outlet} argues that {claim}. "
+        body = (f"In a {month_name} piece, {author} for {outlet} argues that {claim}. "
                 f"The analysis turns on how the general grant is construed, and notes that "
                 f"the position has not been tested on appeal.")
     else:
-        body = (f"{outlet} reports {year} guidance addressing {topic_short}. "
+        body = (f"{outlet} reports {month_name} guidance addressing {topic_short}. "
                 f"The practical summary: {claim}. Firms should confirm the position against "
                 f"the operative text before relying on it.")
 
@@ -331,7 +353,7 @@ def _out_of_scope_entry(query: str, index: int,
     topic = _topic_phrase(query)
     topic_short = _truncate_words(topic, 9)
     note = rng.choice(_OUT_OF_SCOPE_NOTES)
-    year = _resolve_year(rng, cutoff_year, 2017, 2026)
+    year, date_str = _resolve_entry_date(rng, cutoff_year=cutoff_year, min_year=2017)
     lens = rng.choice(("Coverage Notice", "Scope Advisory", "Jurisdiction Note",
                        "Referral Notice"))
 
@@ -340,7 +362,7 @@ def _out_of_scope_entry(query: str, index: int,
     url = f"https://{_host(rng, registry, rng.choice(_PUBLISHERS))}/{slug}/{rng.randrange(1000, 99999)}"
 
     if rng.random() < 0.3:
-        body = (f"{registry} — {lens}, {year}. Reviewed against the query on "
+        body = (f"{registry} — {lens}, {year} (effective {date_str}). Reviewed against the query on "
                 f"{topic_short}: {note.lower()} No clearance is issued or implied by "
                 f"this entry.")
     else:
